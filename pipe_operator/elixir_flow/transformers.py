@@ -326,8 +326,7 @@ class ToLambdaTransformer(ast.NodeTransformer):
             node, self.placeholder
         ):
             return self._to_lambda(node)
-        node.left = self.visit(node.left)  # type: ignore
-        node.right = self.visit(node.right)  # type: ignore
+        self.generic_visit(node)
         return self.fallback_transformer.visit(node)
 
     def _to_lambda(self, node: ast.expr) -> ast.Lambda:
