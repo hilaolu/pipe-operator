@@ -175,10 +175,17 @@ class PipeTransformer(ast.NodeTransformer):
         return self.visit(call)
 
     def _transform_call(self, node: ast.BinOp) -> ast.Call:
-        """Rewrite `a >> b(...)` as `b(a, ...)`."""
+        """Rewrite `a >> b(...)` as `b(a, ...)` or replace `_` placeholder in args/kwargs."""
         right: ast.Call = node.right  # type: ignore
-        args = 0 if isinstance(node.op, self.operator) else len(right.args)
-        right.args.insert(args, node.left)
+        # Check if the placeholder is used in the call's args or kwargs
+        if node_contains_name(right, self.placeholder):
+            # Replace placeholder with the piped value
+            name_replacer = _CallPlaceholderReplacer(self.placeholder, node.left)
+            right = name_replacer.visit(right)
+        else:
+            # Default behavior: insert piped value as first positional argument
+            args = 0 if isinstance(node.op, self.operator) else len(right.args)
+            right.args.insert(args, node.left)
         return self.visit(right)
 
     def _add_debug(self, node: ast.expr) -> ast.Call:
@@ -403,3 +410,26 @@ class NameReplacer(ast.NodeTransformer):
             lineno=node.lineno,
             col_offset=node.col_offset,
         )
+
+
+class _CallPlaceholderReplacer(ast.NodeTransformer):
+    """
+    Transformer that replaces `Name(id=placeholder)` nodes with a replacement AST node.
+    Used internally to replace `_` placeholders in function call arguments/kwargs
+    with the piped value.
+
+    Args:
+        placeholder (str): The placeholder variable name to find and replace.
+        replacement_node (ast.expr): The AST node to replace the placeholder with.
+    """
+
+    def __init__(self, placeholder: str, replacement_node: ast.expr) -> None:
+        self.placeholder = placeholder
+        self.replacement_node = replacement_node
+        super().__init__()
+
+    def visit_Name(self, node: ast.Name) -> ast.expr:
+        """Replaces the placeholder Name node with the replacement node."""
+        if node.id != self.placeholder:
+            return node
+        return self.replacement_node

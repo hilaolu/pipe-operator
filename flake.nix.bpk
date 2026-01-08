@@ -1,0 +1,47 @@
+{
+  description = "Development environment";
+
+  inputs = {
+    nixpkgs.url = "github:hilaolu/nixpkgs/pipe-operator";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+        pythonPackages = p: with p; [
+          pkgs.python312Packages.ipython
+          pkgs.python312Packages.ipykernel
+          pkgs.python312Packages.matplotlib
+          pkgs.python312Packages.pixcat
+          pkgs.python312Packages.imgcat
+          pkgs.python312Packages.numpy
+          pkgs.python312Packages.pandas
+          pkgs.python312Packages.coconut
+          pkgs.python312Packages.pipe-operator
+          pkgs.python312Packages.bioblend
+          pkgs.python312Packages.redun
+          pkgs.python312Packages.python-dotenv
+          pkgs.python312Packages.trafilatura
+        ];
+        pythonEnv = pkgs.python312.withPackages pythonPackages;
+      in {
+        # set environment variable for Zed to detect the python path
+        MY_PYTHON_PATH = "${pythonEnv}/bin/python";
+        devShells.default = pkgs.mkShell {
+          packages = [
+            pythonEnv
+            pkgs.basedpyright
+            pkgs.marksman
+            pkgs.ruff
+            pkgs.pyright
+            pkgs.bc
+          ];
+
+        };
+      });
+}
